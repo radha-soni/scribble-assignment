@@ -53,6 +53,10 @@ function emptyGuesses(): Room["guesses"] {
   return [];
 }
 
+function initialScores(participants: Participant[]): Record<string, number> {
+  return Object.fromEntries(participants.map((participant) => [participant.id, 0]));
+}
+
 function pickDeterministicWord(roomCode: string) {
   const score = Array.from(roomCode).reduce((sum, char) => sum + char.charCodeAt(0), 0);
   const index = score % STARTER_WORDS.length;
@@ -73,6 +77,7 @@ export function createRoom(playerName: string) {
     secretWord: null,
     canvasStrokes: emptyCanvasStrokes(),
     guesses: emptyGuesses(),
+    scores: initialScores([participant]),
     participants: [participant],
     createdAt: now(),
     updatedAt: now()
@@ -95,6 +100,7 @@ export function joinRoom(code: string, playerName: string) {
 
   const participant = createParticipant(playerName);
   room.participants.push(participant);
+  room.scores[participant.id] = 0;
   room.updatedAt = now();
   rooms.set(room.code, room);
 
@@ -129,6 +135,7 @@ export function startGame(code: string, requesterParticipantId: string) {
   room.secretWord = pickDeterministicWord(room.code);
   room.canvasStrokes = emptyCanvasStrokes();
   room.guesses = emptyGuesses();
+  room.scores = initialScores(room.participants);
   room.status = "playing";
   room.updatedAt = now();
   rooms.set(room.code, room);
@@ -230,6 +237,9 @@ export function submitGuess(code: string, participantId: string, guess: string) 
   }
 
   const isCorrect = normalizedGuess.toLowerCase() === access.room.secretWord.toLowerCase();
+  const alreadyScoredCorrectly = access.room.guesses.some(
+    (existingGuess) => existingGuess.participantId === participantId && existingGuess.isCorrect
+  );
 
   const entry: GuessEntry = {
     id: randomUUID(),
@@ -241,6 +251,11 @@ export function submitGuess(code: string, participantId: string, guess: string) 
   };
 
   access.room.guesses.push(entry);
+
+  if (isCorrect && !alreadyScoredCorrectly) {
+    access.room.scores[access.participant.id] = (access.room.scores[access.participant.id] ?? 0) + 100;
+  }
+
   access.room.updatedAt = now();
   rooms.set(access.room.code, access.room);
 
@@ -266,6 +281,7 @@ export function toRoomSnapshot(room: Room, viewerParticipantId?: string): RoomSn
     viewerRole: isDrawerViewer ? "drawer" : "guesser",
     canvasStrokes: room.canvasStrokes.map((stroke) => ({ ...stroke, points: [...stroke.points] })),
     guesses: room.guesses.map((guess) => ({ ...guess })),
+    scores: { ...room.scores },
     participants: room.participants.map((participant) => ({ ...participant })),
     availableWords: listWords(),
     roles: [...STARTER_ROLES]

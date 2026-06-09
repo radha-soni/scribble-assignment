@@ -38,6 +38,7 @@ export interface Room {
   secretWord: string | null;
   canvasStrokes: CanvasStroke[];
   guesses: GuessEntry[];
+  scores: Record<string, number>;
   participants: Participant[];
   createdAt: string;
   updatedAt: string;
@@ -52,6 +53,7 @@ export interface RoomSnapshot {
   secretWord?: string;
   canvasStrokes: CanvasStroke[];
   guesses: GuessEntry[];
+  scores: Record<string, number>;
   participants: Participant[];
   availableWords: string[];
   roles: ParticipantRole[];

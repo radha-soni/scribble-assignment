@@ -511,8 +511,9 @@ input {
   color: var(--ink-soft);
 }
 
-.guess-history__result--correct {
-  color: #047857;
+.scoreboard__empty {
+  margin: 0;
+  color: var(--ink-soft);
 }
 
 /* --- GAME PAGE LAYOUT --- */

@@ -54,7 +54,7 @@ export function GamePage() {
 
       <div className="game-page__layout">
         <aside className="game-page__sidebar game-page__sidebar--left">
-          <Scoreboard />
+          <Scoreboard participants={room.participants} scores={room.scores} />
           <GuessHistory guesses={room.guesses} />
           <ResultPanel />
         </aside>
