@@ -15,6 +15,15 @@ export interface CanvasStroke {
   createdAt: string;
 }
 
+export interface GuessEntry {
+  id: string;
+  participantId: string;
+  participantName: string;
+  guess: string;
+  isCorrect: boolean;
+  createdAt: string;
+}
+
 export interface Participant {
   id: string;
   name: string;
@@ -28,6 +37,7 @@ export interface Room {
   drawerParticipantId: string | null;
   secretWord: string | null;
   canvasStrokes: CanvasStroke[];
+  guesses: GuessEntry[];
   participants: Participant[];
   createdAt: string;
   updatedAt: string;
@@ -41,6 +51,7 @@ export interface RoomSnapshot {
   viewerRole: ParticipantRole;
   secretWord?: string;
   canvasStrokes: CanvasStroke[];
+  guesses: GuessEntry[];
   participants: Participant[];
   availableWords: string[];
   roles: ParticipantRole[];

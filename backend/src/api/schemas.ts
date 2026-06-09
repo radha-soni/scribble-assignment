@@ -51,6 +51,11 @@ export const clearCanvasSchema = z.object({
   participantId: z.string().min(1, { message: "Missing participant id." })
 });
 
+export const submitGuessSchema = z.object({
+  participantId: z.string().min(1, { message: "Missing participant id." }),
+  guess: z.string().trim().min(1, { message: "Enter a guess." })
+});
+
 export class HttpError extends Error {
   statusCode: number;
 

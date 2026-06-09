@@ -14,6 +14,15 @@ export interface CanvasStroke {
   createdAt: string;
 }
 
+export interface GuessEntry {
+  id: string;
+  participantId: string;
+  participantName: string;
+  guess: string;
+  isCorrect: boolean;
+  createdAt: string;
+}
+
 export interface Participant {
   id: string;
   name: string;
@@ -28,6 +37,7 @@ export interface RoomSnapshot {
   viewerRole: ParticipantRole;
   secretWord?: string;
   canvasStrokes: CanvasStroke[];
+  guesses: GuessEntry[];
   participants: Participant[];
   availableWords: string[];
   roles: ParticipantRole[];
@@ -93,6 +103,12 @@ export const api = {
     return request<{ room: RoomSnapshot }>(`/rooms/${encodeURIComponent(code)}/canvas/clear`, {
       method: "POST",
       body: JSON.stringify({ participantId })
+    });
+  },
+  submitGuess(code: string, participantId: string, guess: string) {
+    return request<{ room: RoomSnapshot }>(`/rooms/${encodeURIComponent(code)}/guesses`, {
+      method: "POST",
+      body: JSON.stringify({ participantId, guess })
     });
   }
 };

@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { CanvasStroke, Participant, Room, RoomSnapshot } from "../models/game.js";
+import type { CanvasStroke, GuessEntry, Participant, Room, RoomSnapshot } from "../models/game.js";
 import { STARTER_ROLES, STARTER_WORDS } from "../seed/starterData.js";
 
 const rooms = new Map<string, Room>();
@@ -49,6 +49,10 @@ function emptyCanvasStrokes(): Room["canvasStrokes"] {
   return [];
 }
 
+function emptyGuesses(): Room["guesses"] {
+  return [];
+}
+
 function pickDeterministicWord(roomCode: string) {
   const score = Array.from(roomCode).reduce((sum, char) => sum + char.charCodeAt(0), 0);
   const index = score % STARTER_WORDS.length;
@@ -68,6 +72,7 @@ export function createRoom(playerName: string) {
     drawerParticipantId: null,
     secretWord: null,
     canvasStrokes: emptyCanvasStrokes(),
+    guesses: emptyGuesses(),
     participants: [participant],
     createdAt: now(),
     updatedAt: now()
@@ -123,6 +128,7 @@ export function startGame(code: string, requesterParticipantId: string) {
   room.drawerParticipantId = room.hostParticipantId || fallbackDrawerId;
   room.secretWord = pickDeterministicWord(room.code);
   room.canvasStrokes = emptyCanvasStrokes();
+  room.guesses = emptyGuesses();
   room.status = "playing";
   room.updatedAt = now();
   rooms.set(room.code, room);
@@ -182,6 +188,65 @@ export function clearCanvas(code: string, participantId: string) {
   return { ok: true as const, room: cloneRoom(access.room) };
 }
 
+function getGuesserRoom(code: string, participantId: string) {
+  const room = rooms.get(code);
+
+  if (!room) {
+    return { ok: false as const, reason: "not_found" as const };
+  }
+
+  if (room.status !== "playing") {
+    return { ok: false as const, reason: "not_playing" as const };
+  }
+
+  const participant = room.participants.find((entry) => entry.id === participantId);
+
+  if (!participant) {
+    return { ok: false as const, reason: "unknown_participant" as const };
+  }
+
+  if (participantId === room.drawerParticipantId) {
+    return { ok: false as const, reason: "drawer_cannot_guess" as const };
+  }
+
+  return { ok: true as const, room, participant };
+}
+
+export function submitGuess(code: string, participantId: string, guess: string) {
+  const access = getGuesserRoom(code, participantId);
+
+  if (!access.ok) {
+    return access;
+  }
+
+  const normalizedGuess = guess.trim();
+
+  if (!normalizedGuess) {
+    return { ok: false as const, reason: "empty_guess" as const };
+  }
+
+  if (!access.room.secretWord) {
+    return { ok: false as const, reason: "not_playing" as const };
+  }
+
+  const isCorrect = normalizedGuess.toLowerCase() === access.room.secretWord.toLowerCase();
+
+  const entry: GuessEntry = {
+    id: randomUUID(),
+    participantId: access.participant.id,
+    participantName: access.participant.name,
+    guess: normalizedGuess,
+    isCorrect,
+    createdAt: now()
+  };
+
+  access.room.guesses.push(entry);
+  access.room.updatedAt = now();
+  rooms.set(access.room.code, access.room);
+
+  return { ok: true as const, room: cloneRoom(access.room), entry };
+}
+
 export function saveRoom(room: Room) {
   room.updatedAt = now();
   rooms.set(room.code, cloneRoom(room));
@@ -200,6 +265,7 @@ export function toRoomSnapshot(room: Room, viewerParticipantId?: string): RoomSn
     drawerParticipantId: room.drawerParticipantId,
     viewerRole: isDrawerViewer ? "drawer" : "guesser",
     canvasStrokes: room.canvasStrokes.map((stroke) => ({ ...stroke, points: [...stroke.points] })),
+    guesses: room.guesses.map((guess) => ({ ...guess })),
     participants: room.participants.map((participant) => ({ ...participant })),
     availableWords: listWords(),
     roles: [...STARTER_ROLES]

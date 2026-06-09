@@ -134,6 +134,16 @@ class RoomStore {
     this.setRoomSnapshot(response.room);
     return response.room;
   }
+
+  async submitGuess(guess: string) {
+    if (!this.state.room || !this.state.participantId) {
+      throw new Error("Missing room session");
+    }
+
+    const response = await api.submitGuess(this.state.room.code, this.state.participantId, guess);
+    this.setRoomSnapshot(response.room);
+    return response.room;
+  }
 }
 
 const RoomStoreContext = createContext<RoomStore | null>(null);

@@ -93,7 +93,12 @@ export function GamePage() {
           </Card>
 
           <Card title="Your Guess">
-            <GuessForm />
+            <GuessForm
+              disabled={isDrawer}
+              onSubmitGuess={async (guess) => {
+                await roomStore.submitGuess(guess);
+              }}
+            />
           </Card>
         </aside>
       </div>

@@ -7,7 +7,8 @@ import {
   joinRoomSchema,
   roomCodeParamsSchema,
   roomViewerQuerySchema,
-  startGameSchema
+  startGameSchema,
+  submitGuessSchema
 } from "./schemas.js";
 import {
   addCanvasStroke,
@@ -16,6 +17,7 @@ import {
   getRoom,
   joinRoom,
   startGame,
+  submitGuess,
   toRoomSnapshot
 } from "../services/roomStore.js";
 
@@ -149,6 +151,44 @@ export function createRoomsRouter() {
         }
 
         throw new HttpError(403, "Only the drawer can clear the canvas.");
+      }
+
+      response.json({
+        room: toRoomSnapshot(result.room, participantId)
+      });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.post("/:code/guesses", (request, response, next) => {
+    try {
+      const { code } = roomCodeParamsSchema.parse(request.params);
+      const { participantId, guess } = submitGuessSchema.parse(request.body);
+      const result = submitGuess(code, participantId, guess);
+
+      if (!result.ok) {
+        if (result.reason === "not_found") {
+          throw new HttpError(404, "Room not found.");
+        }
+
+        if (result.reason === "not_playing") {
+          throw new HttpError(409, "Guessing is only available during an active game.");
+        }
+
+        if (result.reason === "unknown_participant") {
+          throw new HttpError(404, "Participant not found in this room.");
+        }
+
+        if (result.reason === "drawer_cannot_guess") {
+          throw new HttpError(403, "The drawer cannot submit guesses.");
+        }
+
+        if (result.reason === "empty_guess") {
+          throw new HttpError(400, "Enter a guess.");
+        }
+
+        throw new HttpError(400, "Unable to submit guess.");
       }
 
       response.json({
