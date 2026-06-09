@@ -91,6 +91,28 @@ export function getRoom(code: string) {
   return room ? cloneRoom(room) : null;
 }
 
+export function startGame(code: string, requesterParticipantId: string) {
+  const room = rooms.get(code);
+
+  if (!room) {
+    return { ok: false as const, reason: "not_found" as const };
+  }
+
+  if (requesterParticipantId !== room.hostParticipantId) {
+    return { ok: false as const, reason: "not_host" as const };
+  }
+
+  if (room.participants.length < 2) {
+    return { ok: false as const, reason: "not_enough_players" as const };
+  }
+
+  room.status = "playing";
+  room.updatedAt = now();
+  rooms.set(room.code, room);
+
+  return { ok: true as const, room: cloneRoom(room) };
+}
+
 export function saveRoom(room: Room) {
   room.updatedAt = now();
   rooms.set(room.code, cloneRoom(room));

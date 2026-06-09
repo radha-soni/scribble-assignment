@@ -8,7 +8,7 @@ import { useRoomState, useRoomStore } from "../state/roomStore";
 export function LobbyPage() {
   const navigate = useNavigate();
   const roomStore = useRoomStore();
-  const { room, error, isLoading } = useRoomState();
+  const { room, participantId, error, isLoading } = useRoomState();
   const [refreshError, setRefreshError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -16,6 +16,12 @@ export function LobbyPage() {
       navigate("/", { replace: true });
     }
   }, [navigate, room]);
+
+  useEffect(() => {
+    if (room?.status === "playing") {
+      navigate("/game", { replace: true });
+    }
+  }, [navigate, room?.status]);
 
   useEffect(() => {
     if (!room?.code) {
@@ -69,6 +75,18 @@ export function LobbyPage() {
     return null;
   }
 
+  const isHost = participantId === room.hostParticipantId;
+  const canStart = isHost && room.participants.length >= 2;
+
+  async function handleStartGame() {
+    try {
+      setRefreshError(null);
+      await roomStore.startGame();
+    } catch (caughtError) {
+      setRefreshError(caughtError instanceof Error ? caughtError.message : "Unable to start game");
+    }
+  }
+
   return (
     <section className="panel placeholder-page">
       <div className="lobby-header">
@@ -110,8 +128,12 @@ export function LobbyPage() {
         <button className="button button--secondary" disabled={isLoading} onClick={handleRefresh}>
           {isLoading ? "Refreshing..." : "Refresh Room"}
         </button>
-        <button className="button button--primary" onClick={() => navigate("/game")}>
-          Start Game
+        <button
+          className="button button--primary"
+          disabled={!canStart || isLoading}
+          onClick={handleStartGame}
+        >
+          {isHost ? "Start Game" : "Waiting for host..."}
         </button>
       </div>
     </section>
