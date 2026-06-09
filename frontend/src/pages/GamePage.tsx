@@ -21,7 +21,7 @@ export function GamePage() {
   }, [navigate, room]);
 
   useEffect(() => {
-    if (!room?.code || room.status !== "playing") {
+    if (!room?.code || (room.status !== "playing" && room.status !== "results")) {
       return;
     }
 
@@ -40,7 +40,13 @@ export function GamePage() {
 
   const viewer = room.participants.find((participant) => participant.id === participantId) ?? null;
   const isDrawer = room.viewerRole === "drawer";
-  const roleLabel = isDrawer ? "You are the drawer" : "You are guessing";
+  const isPlaying = room.status === "playing";
+  const roleLabel =
+    room.status === "results"
+      ? "Round complete"
+      : isDrawer
+        ? "You are the drawer"
+        : "You are guessing";
 
   return (
     <section className="panel game-page">
@@ -56,14 +62,20 @@ export function GamePage() {
         <aside className="game-page__sidebar game-page__sidebar--left">
           <Scoreboard participants={room.participants} scores={room.scores} />
           <GuessHistory guesses={room.guesses} />
-          <ResultPanel />
+          <ResultPanel
+            status={room.status}
+            secretWord={room.secretWord}
+            participants={room.participants}
+            scores={room.scores}
+            guesses={room.guesses}
+          />
         </aside>
 
         <div className="game-page__main">
           <Card title="Canvas">
             <DrawingCanvas
               strokes={room.canvasStrokes}
-              canDraw={isDrawer}
+              canDraw={isDrawer && isPlaying}
               onStrokeComplete={async (stroke) => {
                 await roomStore.addCanvasStroke(stroke);
               }}
@@ -85,7 +97,7 @@ export function GamePage() {
                 <dt>Status</dt>
                 <dd>{roleLabel}</dd>
               </div>
-              {isDrawer && room.secretWord ? (
+              {isPlaying && isDrawer && room.secretWord ? (
                 <div>
                   <dt>Secret word</dt>
                   <dd>{room.secretWord}</dd>
@@ -96,7 +108,7 @@ export function GamePage() {
 
           <Card title="Your Guess">
             <GuessForm
-              disabled={isDrawer}
+              disabled={isDrawer || !isPlaying}
               onSubmitGuess={async (guess) => {
                 await roomStore.submitGuess(guess);
               }}

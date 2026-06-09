@@ -31,7 +31,7 @@ export interface Participant {
 
 export interface RoomSnapshot {
   code: string;
-  status: "lobby" | "playing";
+  status: "lobby" | "playing" | "results";
   hostParticipantId: string;
   drawerParticipantId: string | null;
   viewerRole: ParticipantRole;

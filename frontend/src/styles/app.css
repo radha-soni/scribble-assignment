@@ -516,6 +516,44 @@ input {
   color: var(--ink-soft);
 }
 
+.result-panel {
+  margin-bottom: 16px;
+}
+
+.result-panel__pending {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 0.95rem;
+}
+
+.result-panel__heading {
+  margin: 16px 0 8px;
+  font-size: 0.95rem;
+  color: var(--ink);
+}
+
+.result-panel__scores {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.result-panel__scores li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-strong);
+}
+
+.guess-history__result--correct {
+  color: #047857;
+}
+
 /* --- GAME PAGE LAYOUT --- */
 /* Changed layout structure to be much wider and utilize screen space */
 .game-page {

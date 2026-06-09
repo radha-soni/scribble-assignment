@@ -256,6 +256,10 @@ export function submitGuess(code: string, participantId: string, guess: string) 
     access.room.scores[access.participant.id] = (access.room.scores[access.participant.id] ?? 0) + 100;
   }
 
+  if (isCorrect) {
+    access.room.status = "results";
+  }
+
   access.room.updatedAt = now();
   rooms.set(access.room.code, access.room);
 
@@ -287,7 +291,7 @@ export function toRoomSnapshot(room: Room, viewerParticipantId?: string): RoomSn
     roles: [...STARTER_ROLES]
   };
 
-  if (isDrawerViewer && room.secretWord) {
+  if (room.secretWord && (room.status === "results" || isDrawerViewer)) {
     snapshot.secretWord = room.secretWord;
   }
 
