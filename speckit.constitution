@@ -1,0 +1,66 @@
+# Spec Kit Constitution — Scribble Lab
+
+## Purpose
+
+This constitution constrains how we specify, plan, implement, and validate changes in this repo so the delivered behavior matches the README business scenarios and remains easy to review.
+
+## Non-negotiable boundaries (must match README)
+
+- **No WebSockets / real-time push**: all synchronization is HTTP + polling only.
+- **No database / persistence**: backend state is in-memory only; restarts wipe rooms.
+- **No authentication/accounts/sessions**.
+- **No scope creep**: do not add multi-rounds, timers, bonuses, spectator mode, moderation, passwords/invites, custom word packs, new routing/state libraries, or unrelated refactors.
+- **No “rewrite the starter”**: enhance incrementally; prefer minimal, local changes.
+
+## Engineering principles
+
+- **TypeScript-first**: avoid `any`; use `unknown` and narrow when needed.
+- **Deterministic game rules**: outcomes must be repeatable across runs and tabs (no random word selection or random scoring behavior).
+- **Backwards-compatible increments**: each commit should keep the app runnable.
+- **Keep state minimal**: room state should store only what is required for the scenarios; remove/clear round state on restart.
+- **Fail fast with clear errors**:
+  - Backend returns consistent JSON errors with useful messages.
+  - Frontend shows clear, user-facing validation feedback (not stack traces).
+
+## AI usage rules
+
+- **AI is allowed for**: exploration help, drafting specs/plans, proposing code changes, writing tests, and suggesting refactors that are directly justified by scenarios.
+- **AI is not allowed to decide** ambiguous product rules silently:
+  - If a rule is unclear, record an assumption explicitly in `/speckit.specify` (and/or discovery notes) before implementing.
+- **No blind copy/paste**: every AI-proposed change must be read, understood, and matched against acceptance criteria before committing.
+
+## Spec → Plan → Tasks → Code traceability
+
+- Every scenario must have:
+  - **Specification**: acceptance criteria + edge cases.
+  - **Plan**: state model + endpoints + file-level change list.
+  - **Tasks**: ordered, testable slices with dependencies.
+- Implementation must remain consistent with artifacts; if implementation deviates, update the spec/plan/tasks in the same feature group.
+- Complete **at least 4 specify iterations** (one per scenario group minimum).
+
+## Validation expectations (manual)
+
+All scenarios must be validated with **two browser tabs** (or two browsers) to simulate multiplayer.
+
+- **Polling**: observable refresh roughly every ~2 seconds where required (Lobby and Game sync).
+- **Input validation**:
+  - Names and guesses are **trimmed**; empty/whitespace-only is rejected with a clear message.
+  - Guess matching is **case-insensitive**.
+  - Room code invalid/empty is rejected with clear feedback.
+- **Isolation**: actions in one room must not affect another room.
+- **Determinism**: word selection and scoring behave predictably and repeatably.
+
+## Commit discipline
+
+- Keep commits **granular and meaningful**:
+  - Prefer one behavioral slice per commit (backend + frontend together if needed for a slice).
+  - Include artifact updates in their own commits (docs-only) when possible.
+- Before committing:
+  - Verify the slice manually against its acceptance criteria.
+  - Ensure no unrelated files (like lockfiles) are included unless intentionally changed.
+
+## Build verification (required before final handoff)
+
+- `cd backend && npm run build`
+- `cd frontend && npm run build`
+
