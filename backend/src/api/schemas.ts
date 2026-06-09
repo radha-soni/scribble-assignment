@@ -9,11 +9,11 @@ const roomCodeSchema = z
   .transform((value) => value.toUpperCase());
 
 export const createRoomSchema = z.object({
-  playerName: z.string().optional()
+  playerName: z.string().trim().min(1, { message: "Enter a player name." })
 });
 
 export const joinRoomSchema = z.object({
-  playerName: z.string().optional()
+  playerName: z.string().trim().min(1, { message: "Enter a player name." })
 });
 
 export const roomCodeParamsSchema = z.object({
