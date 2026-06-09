@@ -1,0 +1,166 @@
+# Plan — Iteration 1 (Scenario 1: Room setup & lobby)
+
+This plan implements Scenario 1 from `speckit.specify` and stays within `speckit.constitution` constraints (HTTP polling only, in-memory backend, no auth).
+
+## Current state (starter)
+
+- Backend supports:
+  - `POST /rooms` → creates a room with 1 participant
+  - `POST /rooms/:code/join` → adds a participant
+  - `GET /rooms/:code?participantId=...` → returns a snapshot (viewer id currently ignored)
+- Room model:
+  - `RoomStatus` is `"lobby"` only
+  - no host tracking
+- Frontend:
+  - Lobby updates via manual “Refresh Room”
+  - “Start Game” button just navigates to `/game` (no backend action, no gating)
+
+## Target end state (Scenario 1)
+
+- Creating a room assigns a **host participant** and exposes host identity in the snapshot.
+- Joining validates room codes; invalid input yields clear **400** errors; well-formed but missing room yields **404**.
+- Lobby **polls every ~2 seconds** and updates participants automatically.
+- Only the **host** can start the game, and only when **≥2 participants** are present.
+- Start game is a backend-controlled state transition; all tabs observe it via polling and transition UI accordingly.
+
+## Backend plan
+
+### Data model changes (`backend/src/models/game.ts`)
+
+- Extend `RoomStatus` to support leaving the lobby:
+  - `type RoomStatus = "lobby" | "playing";`
+  - (Further statuses like `"results"` are deferred to later scenarios.)
+- Add host tracking:
+  - `Room.hostParticipantId: string`
+- Expose host identity to clients:
+  - `RoomSnapshot.hostParticipantId: string`
+
+### Room store changes (`backend/src/services/roomStore.ts`)
+
+- On `createRoom`:
+  - create participant as today
+  - set `hostParticipantId` to created participant’s id
+- On `joinRoom`:
+  - no host changes
+- Update `toRoomSnapshot`:
+  - include `hostParticipantId`
+  - keep `viewerParticipantId` parameter (will be used in later scenarios)
+- Add a “start game” operation (new function, e.g. `startGame(code, requesterParticipantId)`):
+  - validate room exists
+  - validate requester is host (`requesterParticipantId === room.hostParticipantId`)
+  - validate `room.participants.length >= 2`
+  - set `room.status = "playing"` and `saveRoom(room)`
+
+### API changes
+
+#### Validation (`backend/src/api/schemas.ts`)
+
+- Strengthen room code validation:
+  - `code` must be a **trimmed** 4-character string
+  - reject empty/whitespace-only and wrong length as **400**
+  - optionally restrict characters to `[A-Z0-9]` (aligning with generated alphabet)
+- Add schema for start request:
+  - body contains `participantId: string`
+
+#### Routes (`backend/src/api/rooms.ts`)
+
+- Add endpoint:
+  - `POST /rooms/:code/start`
+  - body: `{ participantId }`
+  - errors:
+    - 400 for invalid payload
+    - 404 if room not found
+    - 403 if requester is not host
+    - 409 (or 400) if fewer than 2 participants
+  - success: returns updated snapshot (or `{ room: snapshot }`) for immediate UI update
+
+### Backend tests (optional but recommended)
+
+- Update / add tests in:
+  - `backend/src/services/roomStore.test.ts` (host assignment, start gating)
+  - `backend/src/api/schemas.test.ts` (room code validation rules)
+
+## Frontend plan
+
+### State model (`frontend/src/services/api.ts`, `frontend/src/state/roomStore.ts`)
+
+- Extend `RoomSnapshot` type to include:
+  - `hostParticipantId: string`
+  - updated `status` union to include `"playing"`
+- Add API method:
+  - `api.startGame(code: string, participantId: string)`
+- Add store method:
+  - `roomStore.startGame()` that calls `api.startGame(room.code, participantId)`
+  - on success, updates the stored snapshot
+
+### Lobby polling (`frontend/src/pages/LobbyPage.tsx`)
+
+- Add a `useEffect` interval that calls `roomStore.fetchRoom()` every ~2000ms while:
+  - the user is on the Lobby route
+  - and `room` + `participantId` exist
+- Ensure cleanup on unmount (clear interval).
+- UI updates:
+  - Identify host in participant list and/or show “You are the host” if `participantId === room.hostParticipantId`.
+  - “Start Game” button:
+    - enabled only if viewer is host and `participants.length >= 2`
+    - otherwise disabled with clear “waiting” messaging
+  - Replace navigation-only start with calling `roomStore.startGame()`.
+
+### Transition on start (`frontend/src/pages/LobbyPage.tsx` and/or routing)
+
+- When polling detects `room.status === "playing"`:
+  - automatically navigate to `/game` in all tabs.
+- If Lobby polling receives 404 (room not found):
+  - navigate to `/` with a clear message (or show a non-crashing error and stop polling).
+
+### Known risk: API base URL default (`frontend/src/services/api.ts`)
+
+- The current default `VITE_API_URL` includes `/bug`.
+- If this prevents the starter from working in this repo, fix early to:
+  - default to `http://localhost:3001`
+  - keep `VITE_API_URL` override behavior intact
+
+## Files expected to change (Scenario 1)
+
+### Backend
+
+- `backend/src/models/game.ts`
+- `backend/src/services/roomStore.ts`
+- `backend/src/api/schemas.ts`
+- `backend/src/api/rooms.ts`
+- (maybe) `backend/src/services/roomStore.test.ts`
+- (maybe) `backend/src/api/schemas.test.ts`
+
+### Frontend
+
+- `frontend/src/services/api.ts`
+- `frontend/src/state/roomStore.ts`
+- `frontend/src/pages/LobbyPage.tsx`
+- (maybe) `frontend/src/pages/GamePage.tsx` (only to react to status/display; gameplay is later)
+
+## Data flow (Scenario 1)
+
+- Create/Join:
+  - frontend calls `POST /rooms` or `POST /rooms/:code/join`
+  - store saves `{ participantId, room }`
+- Lobby refresh:
+  - polling calls `GET /rooms/:code?participantId=...`
+  - store replaces `room` snapshot
+- Start:
+  - host calls `POST /rooms/:code/start` with `participantId`
+  - backend transitions `status` to `"playing"`
+  - all clients observe `"playing"` via polling and navigate to `/game`
+
+## Manual verification checklist (Scenario 1)
+
+- **Host tracking**: creator is host; non-host is not host; consistent across polls.
+- **Join validation**:
+  - empty/whitespace/invalid length/invalid chars rejected with clear message (400)
+  - well-formed but missing room returns not found (404)
+- **Polling**: Lobby participant list updates within ~2 seconds after a second tab joins.
+- **Isolation**: two rooms remain isolated across joins and polls.
+- **Start gating**:
+  - host cannot start with <2 players
+  - non-host cannot start (403)
+  - with 2 players, host start transitions all tabs to `/game` via polling
+
