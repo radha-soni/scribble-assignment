@@ -77,6 +77,14 @@ export function LobbyPage() {
 
   const isHost = participantId === room.hostParticipantId;
   const canStart = isHost && room.participants.length >= 2;
+  const statusMessage =
+    error ??
+    refreshError ??
+    (isHost
+      ? room.participants.length >= 2
+        ? "You can start the game when you're ready."
+        : "Waiting for at least one more player to join."
+      : "Waiting for the host to start the game.");
 
   async function handleStartGame() {
     try {
@@ -120,7 +128,7 @@ export function LobbyPage() {
           <p className="status-line" style={{ backgroundColor: isLoading ? '#fef3c7' : '#e0e7ff', color: isLoading ? '#b45309' : '#3730a3' }}>
             {isLoading ? "Refreshing players..." : "Ready to play"}
           </p>
-          <p style={{ marginTop: '8px' }}>{error ?? refreshError ?? "Waiting for the host to start the game."}</p>
+          <p style={{ marginTop: '8px' }}>{statusMessage}</p>
         </Card>
       </div>
 
@@ -133,7 +141,7 @@ export function LobbyPage() {
           disabled={!canStart || isLoading}
           onClick={handleStartGame}
         >
-          {isHost ? "Start Game" : "Waiting for host..."}
+          {isHost ? (canStart ? "Start Game" : "Waiting for players...") : "Waiting for host..."}
         </button>
       </div>
     </section>
