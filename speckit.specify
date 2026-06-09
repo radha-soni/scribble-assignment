@@ -1,0 +1,109 @@
+# Spec — Iteration 1 (Scenario 1: Room setup & lobby)
+
+## Scope (in)
+
+Implement the Scenario 1 behavior end-to-end:
+
+- Create room + join room by code
+- Host tracking (creator is host)
+- Invalid/empty code rejection with clear feedback
+- Room isolation
+- Lobby automatic polling (about every 2 seconds)
+- Host-only start game, only allowed when at least 2 players are present
+
+## Scope (out)
+
+- No websockets (polling only)
+- No persistence/database
+- No auth/accounts
+- No gameplay (drawer/word/guesses/scoring/results/restart) beyond transitioning out of lobby
+
+## Definitions
+
+- **Room**: identified by a 4-character code (case-insensitive input; normalized to uppercase).
+- **Participant**: a player instance associated with a room; has an id and display name.
+- **Host**: the participant who created the room. There is exactly one host per room.
+- **Lobby polling**: the Lobby screen refreshes its room snapshot automatically every ~2 seconds.
+- **Start game**: a state transition initiated by host that moves the room from lobby into the next state (details of gameplay are handled in later scenarios).
+
+## Assumptions (to remove ambiguity)
+
+- **Host selection**: the room creator is host; host identity is stable for the lifetime of the room.
+- **Polling cadence**: target interval is **2000ms**; minor drift is acceptable; polling stops when leaving the Lobby route.
+- **Start game semantics (Scenario 1 only)**: starting the game changes room status away from `"lobby"` (exact downstream game state is specified in Scenario 2+).
+
+## Acceptance criteria
+
+### A. Host tracking on create
+
+- When a player creates a room, the returned room snapshot includes enough information to identify the host.
+- In the Lobby UI, the host is determinable (e.g., “You are the host” and/or host badge on participant list).
+- Host identity is consistent across refreshes/polls.
+
+### B. Invalid/empty room codes rejected with clear feedback
+
+- Join flow rejects:
+  - empty string
+  - whitespace-only
+  - wrong length (not 4 chars after trimming)
+  - invalid characters (non-alphanumeric; optionally restrict to the backend’s generation alphabet)
+- The user sees a clear, actionable message (examples):
+  - “Enter a 4‑letter room code.”
+  - “Room not found. Check the code and try again.”
+- Backend returns an appropriate status code:
+  - **400** for invalid input format
+  - **404** when the room code is well-formed but not found
+
+### C. Room isolation
+
+- Two different room codes represent isolated rooms:
+  - participants in room A never appear in room B
+  - host-only actions in room A have no effect on room B
+- Polling for room A cannot leak room B state.
+
+### D. Lobby polling (~2s)
+
+- After joining/creating a room, the Lobby automatically refreshes the participant list without requiring a manual “Refresh” button.
+- With two tabs in the same room:
+  - when tab 2 joins, tab 1’s participant list updates within ~2 seconds
+  - the UI does not flicker or duplicate participants during repeated polls
+- Polling error behavior:
+  - transient network errors show a non-crashing message and continue attempting subsequent polls
+  - if the room is not found (404), the user is redirected out of the Lobby (or shown a clear “room no longer exists” message) and polling stops
+
+### E. Host-only start game, minimum 2 players
+
+- Start is only enabled/allowed when:
+  - viewer is the host
+  - room has **at least 2** participants
+- Non-host behavior:
+  - the “Start game” control is disabled or hidden, and the UI explains “Waiting for host…”
+  - if a non-host attempts to start (e.g., via a direct API call), the backend rejects it with a clear error (e.g., **403**)
+- Minimum players enforcement:
+  - if host attempts to start with <2 players, backend rejects with a clear error (e.g., **409** or **400**) and the UI displays it
+- Once start succeeds:
+  - the room status updates away from lobby
+  - all tabs observe the status change via polling and navigate/transition accordingly
+
+## Edge cases
+
+- **Code normalization**: `abcd`, `ABCD`, and ` a b c d ` (after trimming) should behave consistently (normalize to `ABCD`).
+- **Refreshing as unknown viewer**: if `participantId` is missing/invalid, backend must still return a safe room snapshot (no crash); UI should prompt re-join if needed.
+- **Duplicate names**: allowed in Scenario 1; participants are uniquely identified by id.
+- **Rapid joins**: multiple join requests in quick succession still result in a stable participant list with no duplicates.
+
+## Manual verification checklist (Scenario 1)
+
+- **Create room**:
+  - You land in Lobby and can identify “host” in UI.
+- **Join room (2nd tab)**:
+  - Join succeeds with a valid code; Lobby in tab 1 updates within ~2 seconds without clicking refresh.
+- **Invalid joins**:
+  - Try empty / whitespace / short / long / special characters → see clear validation.
+  - Try well-formed but nonexistent code → see “room not found” style error.
+- **Isolation**:
+  - Create room A and room B; joining A does not change B.
+- **Start game gating**:
+  - With 1 player: host cannot start (clear message).
+  - With 2 players: only host can start; non-host cannot.
+
