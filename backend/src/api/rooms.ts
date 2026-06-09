@@ -7,6 +7,7 @@ import {
   joinRoomSchema,
   roomCodeParamsSchema,
   roomViewerQuerySchema,
+  restartGameSchema,
   startGameSchema,
   submitGuessSchema
 } from "./schemas.js";
@@ -16,6 +17,7 @@ import {
   createRoom,
   getRoom,
   joinRoom,
+  restartGame,
   startGame,
   submitGuess,
   toRoomSnapshot
@@ -88,6 +90,10 @@ export function createRoomsRouter() {
 
         if (result.reason === "not_host") {
           throw new HttpError(403, "Only the host can start the game.");
+        }
+
+        if (result.reason === "not_in_lobby") {
+          throw new HttpError(409, "The game can only be started from the lobby.");
         }
 
         throw new HttpError(409, "At least 2 players are required to start the game.");
@@ -189,6 +195,36 @@ export function createRoomsRouter() {
         }
 
         throw new HttpError(400, "Unable to submit guess.");
+      }
+
+      response.json({
+        room: toRoomSnapshot(result.room, participantId)
+      });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.post("/:code/restart", (request, response, next) => {
+    try {
+      const { code } = roomCodeParamsSchema.parse(request.params);
+      const { participantId } = restartGameSchema.parse(request.body);
+      const result = restartGame(code, participantId);
+
+      if (!result.ok) {
+        if (result.reason === "not_found") {
+          throw new HttpError(404, "Room not found.");
+        }
+
+        if (result.reason === "unknown_participant") {
+          throw new HttpError(404, "Participant not found in this room.");
+        }
+
+        if (result.reason === "not_host") {
+          throw new HttpError(403, "Only the host can restart the game.");
+        }
+
+        throw new HttpError(409, "The game can only be restarted from results.");
       }
 
       response.json({

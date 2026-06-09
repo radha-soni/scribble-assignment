@@ -28,6 +28,10 @@ export const startGameSchema = z.object({
   participantId: z.string().min(1, { message: "Missing participant id." })
 });
 
+export const restartGameSchema = z.object({
+  participantId: z.string().min(1, { message: "Missing participant id." })
+});
+
 const canvasPointSchema = z.object({
   x: z.number(),
   y: z.number()

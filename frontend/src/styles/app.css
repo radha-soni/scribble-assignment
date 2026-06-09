@@ -550,6 +550,11 @@ input {
   background: var(--surface-strong);
 }
 
+.game-page__waiting {
+  margin: 0;
+  color: var(--ink-soft);
+}
+
 .guess-history__result--correct {
   color: #047857;
 }

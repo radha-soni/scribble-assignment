@@ -130,6 +130,10 @@ export function startGame(code: string, requesterParticipantId: string) {
     return { ok: false as const, reason: "not_enough_players" as const };
   }
 
+  if (room.status !== "lobby") {
+    return { ok: false as const, reason: "not_in_lobby" as const };
+  }
+
   const fallbackDrawerId = room.participants[0]?.id ?? null;
   room.drawerParticipantId = room.hostParticipantId || fallbackDrawerId;
   room.secretWord = pickDeterministicWord(room.code);
@@ -264,6 +268,39 @@ export function submitGuess(code: string, participantId: string, guess: string) 
   rooms.set(access.room.code, access.room);
 
   return { ok: true as const, room: cloneRoom(access.room), entry };
+}
+
+export function restartGame(code: string, requesterParticipantId: string) {
+  const room = rooms.get(code);
+
+  if (!room) {
+    return { ok: false as const, reason: "not_found" as const };
+  }
+
+  if (room.status !== "results") {
+    return { ok: false as const, reason: "not_in_results" as const };
+  }
+
+  if (requesterParticipantId !== room.hostParticipantId) {
+    return { ok: false as const, reason: "not_host" as const };
+  }
+
+  const participant = room.participants.find((entry) => entry.id === requesterParticipantId);
+
+  if (!participant) {
+    return { ok: false as const, reason: "unknown_participant" as const };
+  }
+
+  room.status = "lobby";
+  room.drawerParticipantId = null;
+  room.secretWord = null;
+  room.canvasStrokes = emptyCanvasStrokes();
+  room.guesses = emptyGuesses();
+  room.scores = initialScores(room.participants);
+  room.updatedAt = now();
+  rooms.set(room.code, room);
+
+  return { ok: true as const, room: cloneRoom(room) };
 }
 
 export function saveRoom(room: Room) {

@@ -21,6 +21,12 @@ export function GamePage() {
   }, [navigate, room]);
 
   useEffect(() => {
+    if (room?.status === "lobby") {
+      navigate("/lobby", { replace: true });
+    }
+  }, [navigate, room?.status]);
+
+  useEffect(() => {
     if (!room?.code || (room.status !== "playing" && room.status !== "results")) {
       return;
     }
@@ -41,12 +47,18 @@ export function GamePage() {
   const viewer = room.participants.find((participant) => participant.id === participantId) ?? null;
   const isDrawer = room.viewerRole === "drawer";
   const isPlaying = room.status === "playing";
+  const isResults = room.status === "results";
+  const isHost = participantId === room.hostParticipantId;
   const roleLabel =
     room.status === "results"
       ? "Round complete"
       : isDrawer
         ? "You are the drawer"
         : "You are guessing";
+
+  async function handleRestart() {
+    await roomStore.restartGame();
+  }
 
   return (
     <section className="panel game-page">
@@ -118,6 +130,15 @@ export function GamePage() {
       </div>
 
       <div className="button-row">
+        {isResults ? (
+          isHost ? (
+            <button className="button button--primary" type="button" onClick={() => void handleRestart()}>
+              Restart Game
+            </button>
+          ) : (
+            <p className="game-page__waiting">Waiting for the host to restart...</p>
+          )
+        ) : null}
         <button className="button button--secondary" onClick={() => navigate("/lobby")}>
           Exit Game
         </button>
