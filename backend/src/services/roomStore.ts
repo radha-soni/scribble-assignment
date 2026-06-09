@@ -45,6 +45,12 @@ function cloneRoom(room: Room) {
   return structuredClone(room);
 }
 
+function pickDeterministicWord(roomCode: string) {
+  const score = Array.from(roomCode).reduce((sum, char) => sum + char.charCodeAt(0), 0);
+  const index = score % STARTER_WORDS.length;
+  return STARTER_WORDS[index];
+}
+
 export function listWords() {
   return [...STARTER_WORDS];
 }
@@ -55,6 +61,8 @@ export function createRoom(playerName: string) {
     code: generateUniqueCode(),
     status: "lobby",
     hostParticipantId: participant.id,
+    drawerParticipantId: null,
+    secretWord: null,
     participants: [participant],
     createdAt: now(),
     updatedAt: now()
@@ -106,6 +114,9 @@ export function startGame(code: string, requesterParticipantId: string) {
     return { ok: false as const, reason: "not_enough_players" as const };
   }
 
+  const fallbackDrawerId = room.participants[0]?.id ?? null;
+  room.drawerParticipantId = room.hostParticipantId || fallbackDrawerId;
+  room.secretWord = pickDeterministicWord(room.code);
   room.status = "playing";
   room.updatedAt = now();
   rooms.set(room.code, room);
@@ -120,14 +131,24 @@ export function saveRoom(room: Room) {
 }
 
 export function toRoomSnapshot(room: Room, viewerParticipantId?: string): RoomSnapshot {
-  void viewerParticipantId;
+  const isDrawerViewer = Boolean(
+    viewerParticipantId && room.drawerParticipantId && viewerParticipantId === room.drawerParticipantId
+  );
 
-  return {
+  const snapshot: RoomSnapshot = {
     code: room.code,
     status: room.status,
     hostParticipantId: room.hostParticipantId,
+    drawerParticipantId: room.drawerParticipantId,
+    viewerRole: isDrawerViewer ? "drawer" : "guesser",
     participants: room.participants.map((participant) => ({ ...participant })),
     availableWords: listWords(),
     roles: [...STARTER_ROLES]
   };
+
+  if (isDrawerViewer && room.secretWord) {
+    snapshot.secretWord = room.secretWord;
+  }
+
+  return snapshot;
 }
