@@ -1,5 +1,6 @@
 import type { NextFunction, Request, Response } from "express";
 import { Router } from "express";
+import { ZodError } from "zod";
 import { createRoomsRouter } from "./rooms.js";
 
 export function createApiRouter() {
@@ -29,8 +30,10 @@ export function errorHandler(
   response: Response,
   _next: NextFunction
 ) {
-  if (error.name === "ZodError") {
-    response.status(400).json({ message: "Invalid request payload" });
+  if (error instanceof ZodError) {
+    response.status(400).json({
+      message: error.issues[0]?.message ?? "Invalid request"
+    });
     return;
   }
 
