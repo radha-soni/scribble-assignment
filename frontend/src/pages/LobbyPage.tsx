@@ -17,6 +17,45 @@ export function LobbyPage() {
     }
   }, [navigate, room]);
 
+  useEffect(() => {
+    if (!room?.code) {
+      return;
+    }
+
+    let isActive = true;
+
+    async function tick() {
+      try {
+        await roomStore.fetchRoom();
+        if (isActive) {
+          setRefreshError(null);
+        }
+      } catch (caughtError) {
+        const message = caughtError instanceof Error ? caughtError.message : "Unable to refresh room";
+        if (!isActive) {
+          return;
+        }
+
+        setRefreshError(message);
+
+        if (message.toLowerCase().includes("not found")) {
+          navigate("/", { replace: true });
+        }
+      }
+    }
+
+    void tick();
+
+    const intervalId = window.setInterval(() => {
+      void tick();
+    }, 2000);
+
+    return () => {
+      isActive = false;
+      window.clearInterval(intervalId);
+    };
+  }, [navigate, room?.code, roomStore]);
+
   async function handleRefresh() {
     try {
       setRefreshError(null);
