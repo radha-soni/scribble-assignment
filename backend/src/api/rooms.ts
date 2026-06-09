@@ -1,5 +1,7 @@
 import { Router } from "express";
 import {
+  addCanvasStrokeSchema,
+  clearCanvasSchema,
   createRoomSchema,
   HttpError,
   joinRoomSchema,
@@ -7,7 +9,15 @@ import {
   roomViewerQuerySchema,
   startGameSchema
 } from "./schemas.js";
-import { createRoom, getRoom, joinRoom, startGame, toRoomSnapshot } from "../services/roomStore.js";
+import {
+  addCanvasStroke,
+  clearCanvas,
+  createRoom,
+  getRoom,
+  joinRoom,
+  startGame,
+  toRoomSnapshot
+} from "../services/roomStore.js";
 
 export function createRoomsRouter() {
   const router = Router();
@@ -79,6 +89,66 @@ export function createRoomsRouter() {
         }
 
         throw new HttpError(409, "At least 2 players are required to start the game.");
+      }
+
+      response.json({
+        room: toRoomSnapshot(result.room, participantId)
+      });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.post("/:code/canvas/strokes", (request, response, next) => {
+    try {
+      const { code } = roomCodeParamsSchema.parse(request.params);
+      const { participantId, stroke } = addCanvasStrokeSchema.parse(request.body);
+      const result = addCanvasStroke(code, participantId, stroke);
+
+      if (!result.ok) {
+        if (result.reason === "not_found") {
+          throw new HttpError(404, "Room not found.");
+        }
+
+        if (result.reason === "not_playing") {
+          throw new HttpError(409, "Drawing is only available during an active game.");
+        }
+
+        if (result.reason === "unknown_participant") {
+          throw new HttpError(404, "Participant not found in this room.");
+        }
+
+        throw new HttpError(403, "Only the drawer can draw on the canvas.");
+      }
+
+      response.json({
+        room: toRoomSnapshot(result.room, participantId)
+      });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.post("/:code/canvas/clear", (request, response, next) => {
+    try {
+      const { code } = roomCodeParamsSchema.parse(request.params);
+      const { participantId } = clearCanvasSchema.parse(request.body);
+      const result = clearCanvas(code, participantId);
+
+      if (!result.ok) {
+        if (result.reason === "not_found") {
+          throw new HttpError(404, "Room not found.");
+        }
+
+        if (result.reason === "not_playing") {
+          throw new HttpError(409, "Drawing is only available during an active game.");
+        }
+
+        if (result.reason === "unknown_participant") {
+          throw new HttpError(404, "Participant not found in this room.");
+        }
+
+        throw new HttpError(403, "Only the drawer can clear the canvas.");
       }
 
       response.json({

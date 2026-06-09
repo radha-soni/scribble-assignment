@@ -7,7 +7,7 @@ import {
   useSyncExternalStore,
   type PropsWithChildren
 } from "react";
-import { api, type RoomSessionResponse, type RoomSnapshot } from "../services/api";
+import { api, type CanvasStroke, type RoomSessionResponse, type RoomSnapshot } from "../services/api";
 
 export interface RoomState {
   room: RoomSnapshot | null;
@@ -107,6 +107,30 @@ class RoomStore {
     const response = await this.withLoading(() =>
       api.startGame(this.state.room!.code, this.state.participantId!)
     );
+    this.setRoomSnapshot(response.room);
+    return response.room;
+  }
+
+  async addCanvasStroke(stroke: CanvasStroke) {
+    if (!this.state.room || !this.state.participantId) {
+      throw new Error("Missing room session");
+    }
+
+    const response = await api.addCanvasStroke(
+      this.state.room.code,
+      this.state.participantId,
+      { ...stroke, createdBy: this.state.participantId }
+    );
+    this.setRoomSnapshot(response.room);
+    return response.room;
+  }
+
+  async clearCanvas() {
+    if (!this.state.room || !this.state.participantId) {
+      throw new Error("Missing room session");
+    }
+
+    const response = await api.clearCanvas(this.state.room.code, this.state.participantId);
     this.setRoomSnapshot(response.room);
     return response.room;
   }

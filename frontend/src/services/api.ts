@@ -1,5 +1,19 @@
 export type ParticipantRole = "drawer" | "guesser";
 
+export interface CanvasPoint {
+  x: number;
+  y: number;
+}
+
+export interface CanvasStroke {
+  id: string;
+  points: CanvasPoint[];
+  color: string;
+  width: number;
+  createdBy: string;
+  createdAt: string;
+}
+
 export interface Participant {
   id: string;
   name: string;
@@ -13,6 +27,7 @@ export interface RoomSnapshot {
   drawerParticipantId: string | null;
   viewerRole: ParticipantRole;
   secretWord?: string;
+  canvasStrokes: CanvasStroke[];
   participants: Participant[];
   availableWords: string[];
   roles: ParticipantRole[];
@@ -67,5 +82,17 @@ export const api = {
   fetchRoom(code: string, participantId?: string) {
     const query = participantId ? `?participantId=${encodeURIComponent(participantId)}` : "";
     return request<{ room: RoomSnapshot }>(`/rooms/${encodeURIComponent(code)}${query}`);
+  },
+  addCanvasStroke(code: string, participantId: string, stroke: CanvasStroke) {
+    return request<{ room: RoomSnapshot }>(`/rooms/${encodeURIComponent(code)}/canvas/strokes`, {
+      method: "POST",
+      body: JSON.stringify({ participantId, stroke })
+    });
+  },
+  clearCanvas(code: string, participantId: string) {
+    return request<{ room: RoomSnapshot }>(`/rooms/${encodeURIComponent(code)}/canvas/clear`, {
+      method: "POST",
+      body: JSON.stringify({ participantId })
+    });
   }
 };
