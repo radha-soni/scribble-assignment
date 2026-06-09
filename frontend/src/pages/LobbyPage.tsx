@@ -50,7 +50,9 @@ export function LobbyPage() {
               {room.participants.map((participant) => (
                 <li key={participant.id}>
                   <span>{participant.name}</span>
-                  <span className="player-list__meta">joined</span>
+                  <span className="player-list__meta">
+                    {participant.id === room.hostParticipantId ? "host" : "joined"}
+                  </span>
                 </li>
               ))}
             </ul>
