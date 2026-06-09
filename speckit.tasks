@@ -1,0 +1,136 @@
+# Tasks — Iteration 1 (Scenario 1: Room setup & lobby)
+
+Goal: implement Scenario 1 behavior from `speckit.specify` using the approach in `speckit.plan`.
+
+## Discovery + alignment (quick)
+
+- [ ] Confirm current starter endpoints still match the plan:
+  - `POST /rooms`, `POST /rooms/:code/join`, `GET /rooms/:code`
+- [ ] Confirm we remain within constitution boundaries (HTTP polling only, in-memory, no auth).
+
+## Backend tasks (do first)
+
+### B1 — Update backend types for Scenario 1
+
+- **Depends on**: none
+- **Change**:
+  - `backend/src/models/game.ts`
+    - extend `RoomStatus` to include `"playing"`
+    - add `Room.hostParticipantId: string`
+    - add `RoomSnapshot.hostParticipantId: string`
+- **Manual check**: `npm run build` (backend) still compiles after type changes.
+
+### B2 — Host tracking on room creation + snapshot field
+
+- **Depends on**: B1
+- **Change**:
+  - `backend/src/services/roomStore.ts`
+    - set `hostParticipantId` when creating a room
+    - include `hostParticipantId` in `toRoomSnapshot`
+- **Manual check**:
+  - Create a room → response includes a host field (via snapshot) and it remains stable on `GET /rooms/:code`.
+
+### B3 — Strengthen room code validation
+
+- **Depends on**: none (can be done before/after B1/B2)
+- **Change**:
+  - `backend/src/api/schemas.ts`:
+    - enforce 4-char trimmed room code
+    - optionally enforce allowed characters
+  - `backend/src/api/rooms.ts`:
+    - ensure invalid format yields 400
+    - ensure missing room yields 404
+- **Manual check**:
+  - Join with empty/whitespace/invalid length/invalid chars → 400 with clear message
+  - Join with well-formed but nonexistent code → 404 with clear message
+
+### B4 — Add start game backend operation + route
+
+- **Depends on**: B1, B2
+- **Change**:
+  - `backend/src/services/roomStore.ts`:
+    - add `startGame(code, requesterParticipantId)` with:
+      - 404 if room missing
+      - 403 if requester not host
+      - 409 (or 400) if participants < 2
+      - set `status = "playing"` on success
+  - `backend/src/api/schemas.ts`:
+    - add request schema for start game body `{ participantId }`
+  - `backend/src/api/rooms.ts`:
+    - add `POST /rooms/:code/start`
+    - return updated snapshot
+- **Manual check** (use REST client or browser devtools):
+  - With 1 participant, host start → rejected with clear message
+  - Non-host start → rejected with clear message
+  - With 2 participants, host start → success; `GET /rooms/:code` shows `status: "playing"`
+
+### B5 — Backend tests (optional but recommended)
+
+- **Depends on**: B2, B3, B4
+- **Change**:
+  - Add/update tests in `backend/src/services/roomStore.test.ts` and `backend/src/api/schemas.test.ts`
+- **Manual check**: `npm test` (backend) passes if tests exist in this repo.
+
+## Frontend tasks (after backend)
+
+### F1 — Update frontend RoomSnapshot types and API base URL if needed
+
+- **Depends on**: B1, B2 (for new snapshot fields), plus “starter runs locally”
+- **Change**:
+  - `frontend/src/services/api.ts`:
+    - extend `RoomSnapshot` to include `hostParticipantId` and `"playing"` status
+    - fix `VITE_API_URL` default if it prevents local usage (remove `/bug`)
+- **Manual check**:
+  - Create room works in browser without console errors; network calls hit the backend correctly.
+
+### F2 — Add start game client API + store method
+
+- **Depends on**: B4, F1
+- **Change**:
+  - `frontend/src/services/api.ts`: add `startGame(code, participantId)`
+  - `frontend/src/state/roomStore.ts`: add `startGame()` which updates stored snapshot
+- **Manual check**:
+  - Clicking “Start Game” (once wired) results in `status` changing in store snapshot.
+
+### F3 — Implement Lobby polling (~2s) + cleanup
+
+- **Depends on**: F1 (for typing), existing `fetchRoom()`
+- **Change**:
+  - `frontend/src/pages/LobbyPage.tsx`:
+    - add `useEffect` interval calling `roomStore.fetchRoom()` every ~2000ms
+    - clear interval on unmount
+    - handle errors without crashing (surface message; stop on 404)
+- **Manual check (two tabs)**:
+  - Tab A creates room and waits in Lobby
+  - Tab B joins → Tab A participant list updates within ~2 seconds without clicking refresh
+
+### F4 — Host UI + host-only start gating
+
+- **Depends on**: B2, F1, F2
+- **Change**:
+  - `frontend/src/pages/LobbyPage.tsx`:
+    - display host indicator and/or “You are the host”
+    - disable/hide start button for non-host
+    - disable start when participants < 2 and show reason
+    - call `roomStore.startGame()` instead of navigation-only
+- **Manual check (two tabs)**:
+  - With 1 player, host cannot start (clear message)
+  - With 2 players, only host can start; non-host sees “waiting for host”
+
+### F5 — Transition all players to Game when status becomes playing
+
+- **Depends on**: B4, F3
+- **Change**:
+  - `frontend/src/pages/LobbyPage.tsx`:
+    - if snapshot becomes `status === "playing"`, navigate to `/game`
+- **Manual check (two tabs)**:
+  - Host starts game → both tabs navigate to `/game` via polling within ~2 seconds
+
+## Scenario 1 completion check (must pass)
+
+- Host tracking works and is stable across polls.
+- Join validation has clear 400 vs 404 behavior.
+- Lobby polls automatically ~2 seconds and updates participants.
+- Rooms are isolated.
+- Host-only start is enforced in backend and reflected in frontend UI.
+
